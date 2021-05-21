@@ -1,0 +1,40 @@
+---
+title: "Basic Alignment"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Basic_Alignment}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(shoe3d)
+library(tidyverse)
+```
+
+```{r}
+df <- tibble(file = list.files("../data", "stl", full.names = T), 
+             scan = purrr::map(file, input_shoe))
+df <- mutate(df, 
+             coord = purrr::map(scan, shoe_coord),
+             pca_rot = purrr::map(coord, prcomp, center = T, scale = F))
+df <- mutate(df,
+             rot = purrr::map(pca_rot, ~.$rotation),
+             rot = purrr::map(rot, ~rbind(cbind(., c(0, 0, 0)), c(0, 0, 0, 1))), 
+             scan2 = purrr::map2(scan, rot, ~transform3d(.x, matrix = .y)))
+```
+
+```{r}
+# First, do gross alignment of the two scans
+m1 <- df$scan2[[1]]
+m2 <- df$scan2[[3]]
+m1_trans <- fix_rotation(m1, m2)
+test <- icp(m1, m2, iterations = 30, threads = 4)
+```
